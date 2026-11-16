@@ -1,0 +1,12 @@
+# Fleet: repos the universal baseline applies to, one slug per line.
+# A repo with its own .github/repo/ folder is self-managed and skipped
+# automatically (hybrid rule) — listed here anyway so the fleet is
+# enumerated in one place.
+rae004/.github
+rae004/rae-local-agent
+rae004/rae-local-chat
+rae004/rae-budget
+rae004/rae-time-tracker-and-invoice
+rae004/ai-security-digest
+rae004/rae-dev-model-training-lab
+rae004/rae-dev-portfolio-2026

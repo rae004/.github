@@ -1,0 +1,56 @@
+name: Fleet drift audit
+
+on:
+  schedule:
+    - cron: "0 8 * * 1" # Mondays 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fleet diff
+        id: diff
+        env:
+          # Needs FLEET_ADMIN_TOKEN (fine-grained PAT, Administration: read on
+          # all fleet repos) to read rulesets and Actions permissions; without
+          # it most targets report `skipped` and the audit is near-useless.
+          GH_TOKEN: ${{ secrets.FLEET_ADMIN_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          python3 scripts/fleet_settings.py diff | tee drift.txt
+          echo "rc=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update drift issue
+        if: steps.diff.outputs.rc == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          {
+            echo "Weekly fleet audit found settings drift. Run locally:"
+            echo
+            echo '```'
+            echo "python3 scripts/fleet_settings.py apply"
+            echo '```'
+            echo
+            echo '<details><summary>Full diff</summary>'
+            echo
+            echo '```'
+            cat drift.txt
+            echo '```'
+            echo
+            echo '</details>'
+          } > body.md
+          n=$(gh issue list --label fleet-drift --state open --json number --jq '.[0].number // empty')
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --body-file body.md
+          else
+            gh issue create --title "Fleet settings drift" --label fleet-drift --body-file body.md
+          fi
