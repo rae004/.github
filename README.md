@@ -40,7 +40,7 @@ done locally.
 
 ## Issue templates
 
-- **Local agent task** (`ISSUE_TEMPLATE/local-agent-task.md`) — pre-fills the
+- **Local agent task** (`.github/ISSUE_TEMPLATE/local-agent-task.md`) — pre-fills the
   YAML-frontmatter body that [rae-local-agent](https://github.com/rae004/rae-local-agent)'s
   issue poller parses, and applies the `local-agent` trigger label. It appears
   on every repo that has no issue templates of its own. Filing it only does
