@@ -1,0 +1,45 @@
+name: PR title
+
+# Reusable check that a pull request title is a Conventional Commit. A repo
+# calls it on pull_request and lists `title / Conventional title` among its
+# required checks:
+#
+#   on:
+#     pull_request:
+#       types: [opened, edited, synchronize, reopened]
+#   jobs:
+#     title:
+#       uses: rae004/.github/.github/workflows/pr-title.yml@main
+#
+# The PR title becomes the squash commit message, which release.yml reads to
+# decide the version. Both use scripts/next_version.py, so a title that passes
+# here is one the release workflow understands.
+
+on:
+  workflow_call:
+    inputs:
+      scripts-ref:
+        description: Ref of rae004/.github to take the rules from. Leave unset outside testing.
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Conventional title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch the rules
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rae004/.github
+          ref: ${{ inputs.scripts-ref }}
+          sparse-checkout: scripts
+          persist-credentials: false
+
+      - name: Check the title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: python3 scripts/check_title.py

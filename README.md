@@ -27,6 +27,7 @@ python3 -m unittest discover tests
 
 - Changes reach the default branch only through a PR (0 approvals).
 - Squash or rebase only; linear history; no force-push or deletion.
+- A squash commit always takes its message from the PR title.
 - Required checks must pass, and the branch must be up to date first.
 - No bypass: the rules bind admins too.
 - Actions must be pinned to a commit SHA.
@@ -121,12 +122,15 @@ chore(deps): bump x       (no tag)
 
 | Commit type | Release |
 |---|---|
-| `type!:` or a `BREAKING CHANGE:` footer | major |
+| `type!:` or a `BREAKING CHANGE:` footer | major (minor while the repo is on 0.x) |
 | `feat` | minor |
 | `fix`, `perf` | patch |
 | anything else (`chore`, `docs`, `ci`, ...) | none |
 
 - The PR title becomes the squash commit message, so it decides the version.
+- Following the SemVer spec, 0.x is initial development: a breaking change
+  there bumps the minor. 1.0.0 is only ever cut by hand, with
+  `gh release create v1.0.0 --generate-notes`; the workflow carries on from it.
 - The biggest change since the last tag wins, so a skipped or failed run is
   picked up by the next one.
 - The version lives in git tags only. No file in the repo is bumped, and
@@ -134,6 +138,8 @@ chore(deps): bump x       (no tag)
 - The rules are `scripts/next_version.py`, tested by
   `tests/test_next_version.py`; the workflow runs those tests before every
   release.
+- No file in a repo carries the version. `package.json` and `pyproject.toml`
+  are set to `0.0.0`.
 
 A repo opts in with a small caller and chains its own deploy on the `tag`
 output:
@@ -158,6 +164,38 @@ jobs:
 Callers reference `@main`, so a change merged here reaches every repo on its
 next push with nothing to bump. GitHub's SHA-pinning rule does not apply to
 calls to reusable workflows, only to the actions inside them.
+
+### PR title check
+
+Because the title decides the version, `.github/workflows/pr-title.yml`
+checks that every PR title is a Conventional Commit: `type: subject` or
+`type(scope): subject`, with one of `feat`, `fix`, `perf`, `refactor`,
+`docs`, `chore`, `test`, `ci`, `build`, `style`, `revert`. It uses the same
+rules file as the release workflow and prints what merging would release.
+
+A repo opts in with a caller, and lists the check as required in its
+`.github/repo-settings.json`:
+
+```yaml
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  title:
+    uses: rae004/.github/.github/workflows/pr-title.yml@main
+```
+
+```json
+{ "required_status_checks": ["title / Conventional title"] }
+```
+
+### Dependabot titles
+
+Dependabot PRs follow the same rule through each repo's own
+`.github/dependabot.yml` (GitHub has no shared one): runtime dependency bumps
+are titled `fix(deps)` and cut a patch release, dev-only bumps are
+`chore(deps-dev)`, and GitHub Actions bumps are `chore(deps)`.
 
 ## Issue templates
 
