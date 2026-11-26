@@ -57,6 +57,10 @@ are optional; any other key is an error.
 
 A repo with no file gets the baseline with no required checks.
 
+Safety guard: a repo that has an old in-repo `.github/repo/` folder and no
+`.github/repo-settings.json` is skipped, so the baseline cannot strip its
+required checks.
+
 ### Common tasks
 
 - **Change a setting for every repo:** edit `repo-defaults/`, merge, run `apply`.
@@ -79,17 +83,28 @@ drift with the command to delete it; the script never deletes one.
 ### Weekly drift audit
 
 `.github/workflows/drift-audit.yml` runs `diff` every Monday and opens (or
-comments on) a `fleet-drift` issue here when anything drifted. It needs a
-`FLEET_ADMIN_TOKEN` secret: a fine-grained PAT with **Administration: read**
-on every repo in `repos.txt`. Without it, most targets report `skipped`.
+comments on) a `fleet-drift` issue here when anything drifted. It can also
+be started by hand from the Actions tab.
 
-### Migrating from in-repo settings
+**Limit:** the audit's token is read-only, and GitHub hides eight
+`repository.json` settings from read-only tokens: the three merge methods,
+auto-merge, "Update branch", delete-branch-on-merge and the two squash
+commit-message settings. The audit lists them as `unverified`. A local
+`python3 scripts/fleet_settings.py diff`, run with your own login, checks
+all of them.
 
-Repos that still carry the older `.github/repo/` folder and no
-`.github/repo-settings.json` are skipped, so the baseline cannot strip their
-required checks. To migrate one: add `.github/repo-settings.json`, delete
-`.github/repo/`, `scripts/repo_settings.py` and
-`.github/workflows/repo-settings.yml` in the same PR, then run `apply` here.
+### Tokens
+
+Both are fine-grained personal access tokens. They expire and must be
+renewed by hand.
+
+| Secret | Set on | Permissions | Used by | When it expires |
+|---|---|---|---|---|
+| `FLEET_ADMIN_TOKEN` | This repo | Administration: read, on every repo in `repos.txt` | Weekly drift audit | The audit reports errors or `skipped` instead of real results |
+| `RELEASE_PLEASE_TOKEN` | `ai-security-digest`, `rae-budget`, `rae-dev-portfolio-2026`, `rae-time-tracker-and-invoice` | Contents and Pull requests: read and write, on those repos | release-please, so CI runs on its release PRs | Release PRs stop being created or updated on those repos |
+
+When adding a repo to `repos.txt`, also add it to `FLEET_ADMIN_TOKEN`'s
+repository access.
 
 ## Issue templates
 
