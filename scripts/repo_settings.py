@@ -9,8 +9,10 @@ Talks to the API through `gh api`, so it uses your gh login locally and GH_TOKEN
 """
 
 import json
+import random
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -44,13 +46,37 @@ TARGETS = [
 ]
 
 
+# Failures worth another try: no HTTP status at all (a dropped or reset
+# connection), rate limiting, and server-side errors. Anything else in the
+# 4xx range (not found, forbidden, invalid) will not fix itself.
+RETRY_STATUS = frozenset({0, 429, 500, 502, 503, 504})
+MAX_ATTEMPTS = 5
+BASE_DELAY = 1.0  # seconds; doubles each attempt
+MAX_DELAY = 30.0
+_sleep = time.sleep  # indirection so tests don't wait
+
+
 class ApiError(Exception):
     def __init__(self, status: int, message: str) -> None:
         super().__init__(f"HTTP {status}: {message}")
         self.status = status
+        text = message.lower()
+        self.transient = (status in RETRY_STATUS and "gh auth login" not in text) or (
+            status == 403 and "rate limit" in text
+        )
 
 
-def gh(method: str, path: str, body: Any = None) -> Any:
+def backoff(attempt: int) -> float:
+    """Seconds to wait after failed attempt `attempt` (1-based).
+
+    Exponential (1s, 2s, 4s, ... capped at MAX_DELAY) with jitter: half the
+    step is fixed and half is random, so repeated callers don't line up.
+    """
+    step = min(MAX_DELAY, BASE_DELAY * 2 ** (attempt - 1))
+    return step / 2 + random.uniform(0, step / 2)
+
+
+def _gh_once(method: str, path: str, body: Any = None) -> Any:
     cmd = ["gh", "api", "-X", method, path]
     stdin = None
     if body is not None:
@@ -64,6 +90,34 @@ def gh(method: str, path: str, body: Any = None) -> Any:
         except ValueError:
             raise ApiError(0, (proc.stdout + proc.stderr).strip()) from None
     return json.loads(proc.stdout) if proc.stdout.strip() else None
+
+
+def gh(method: str, path: str, body: Any = None, retry: bool | None = None) -> Any:
+    """Call the GitHub API, retrying transient failures with backoff.
+
+    GET, PUT, PATCH and DELETE are safe to repeat and retry by default. POST
+    creates something, so a blind retry after a dropped connection could
+    create it twice; it is not retried unless the caller passes `retry=True`
+    (see `fleet_settings._create`, which checks whether the create landed).
+    """
+    if retry is None:
+        retry = method != "POST"
+    attempt = 1
+    while True:
+        try:
+            return _gh_once(method, path, body)
+        except ApiError as e:
+            if not (retry and e.transient) or attempt >= MAX_ATTEMPTS:
+                raise
+            wait = backoff(attempt)
+            reason = str(e).splitlines()[0][:80]
+            print(
+                f"  retry    {method} {path}: {reason} "
+                f"(attempt {attempt + 1} of {MAX_ATTEMPTS} in {wait:.1f}s)",
+                file=sys.stderr,
+            )
+            _sleep(wait)
+            attempt += 1
 
 
 def normalize(value: Any) -> Any:

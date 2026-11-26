@@ -23,6 +23,11 @@ python3 -m unittest discover tests
 
 `apply` is only ever run by hand. Nothing changes on GitHub when a PR merges.
 
+Dropped connections, rate limits and GitHub server errors are retried up to
+five times with exponential backoff and jitter, so one network blip does not
+abort a run across every repo. Both commands are safe to run again at any
+time.
+
 ### What the baseline enforces
 
 - Changes reach the default branch only through a PR (0 approvals).
