@@ -1,0 +1,115 @@
+name: Release
+
+# Reusable release workflow for every rae004 repo. A repo calls it on push to
+# its default branch:
+#
+#   jobs:
+#     release:
+#       permissions:
+#         contents: write
+#       uses: rae004/.github/.github/workflows/release.yml@main
+#
+# Every push to the default branch is one squash-merged PR. This workflow
+# tags that commit directly and publishes a GitHub Release for it; there is
+# no release PR and no release commit, so history reads:
+#
+#   feat: awesome feature 1   (tag: v0.1.0)
+#   fix: oops                 (tag: v0.1.1)
+#   chore(deps): bump x       (no tag)
+#
+# The version comes from the Conventional Commit type of every commit since
+# the last tag, biggest change wins: breaking -> major, feat -> minor,
+# fix/perf -> patch, anything else -> no release. Folding in every commit
+# since the last tag means a run that was skipped or failed is picked up by
+# the next one. The rules live in scripts/next_version.py in this repo.
+#
+# The `tag` output is the new tag, or empty when nothing was released, so a
+# caller can chain its own deploy job on it.
+
+on:
+  workflow_call:
+    inputs:
+      dry-run:
+        description: Work out the version but create no tag or release.
+        type: boolean
+        default: false
+      scripts-ref:
+        description: Ref of rae004/.github to take the version rules from. Leave unset outside testing.
+        type: string
+        default: main
+    outputs:
+      tag:
+        description: The tag that was created (or would be, on a dry run); empty when there is no release.
+        value: ${{ jobs.release.outputs.tag }}
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Tag and release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # One release at a time per repo, in order. Never cancel a run mid-tag.
+    concurrency:
+      group: release-${{ github.repository }}
+      cancel-in-progress: false
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Check out the calling repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # full history and tags, to find the last release
+
+      - name: Fetch the version rules
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rae004/.github
+          ref: ${{ inputs.scripts-ref }}
+          path: .release-rules
+          sparse-checkout: |
+            scripts
+            tests
+          persist-credentials: false
+
+      - name: Check the version rules
+        run: python3 -m unittest discover .release-rules/tests -p 'test_next_version.py'
+
+      - name: Tag this commit if it warrants a release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force --quiet
+          latest=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n 1)
+
+          if [ -n "$latest" ] && git merge-base --is-ancestor HEAD "$latest"; then
+            echo "This commit is already part of $latest; nothing to do."
+            exit 0
+          fi
+
+          if [ -n "$latest" ]; then
+            range="$latest..HEAD"
+            current="${latest#v}"
+          else
+            range="HEAD"
+            current="0.0.0"
+          fi
+
+          next=$(git log --format=%B%x00 "$range" | python3 .release-rules/scripts/next_version.py "$current")
+          if [ -z "$next" ]; then
+            echo "No feat, fix, perf or breaking change since ${latest:-the first commit}; no release."
+            exit 0
+          fi
+
+          echo "tag=v$next" >> "$GITHUB_OUTPUT"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run: would release v$next on $GITHUB_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh release create "v$next" --target "$GITHUB_SHA" --title "v$next" --generate-notes
+          echo "Released v$next on $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
