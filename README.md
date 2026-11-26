@@ -106,6 +106,59 @@ renewed by hand.
 When adding a repo to `repos.txt`, also add it to `FLEET_ADMIN_TOKEN`'s
 repository access.
 
+## Releases
+
+`.github/workflows/release.yml` is the one release workflow for every repo.
+Each PR is squash-merged, so a push to the default branch is one commit; the
+workflow tags that commit and publishes a GitHub Release for it. There is no
+release PR and no release commit:
+
+```
+feat: awesome feature 1   (tag: v0.1.0)
+fix: oops                 (tag: v0.1.1)
+chore(deps): bump x       (no tag)
+```
+
+| Commit type | Release |
+|---|---|
+| `type!:` or a `BREAKING CHANGE:` footer | major |
+| `feat` | minor |
+| `fix`, `perf` | patch |
+| anything else (`chore`, `docs`, `ci`, ...) | none |
+
+- The PR title becomes the squash commit message, so it decides the version.
+- The biggest change since the last tag wins, so a skipped or failed run is
+  picked up by the next one.
+- The version lives in git tags only. No file in the repo is bumped, and
+  release notes are on the repo's Releases page.
+- The rules are `scripts/next_version.py`, tested by
+  `tests/test_next_version.py`; the workflow runs those tests before every
+  release.
+
+A repo opts in with a small caller and chains its own deploy on the `tag`
+output:
+
+```yaml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    uses: rae004/.github/.github/workflows/release.yml@main
+
+  deploy:
+    needs: release
+    if: needs.release.outputs.tag != ''
+    # the repo's own deploy, given needs.release.outputs.tag
+```
+
+Callers reference `@main`, so a change merged here reaches every repo on its
+next push with nothing to bump. GitHub's SHA-pinning rule does not apply to
+calls to reusable workflows, only to the actions inside them.
+
 ## Issue templates
 
 - **Local agent task** (`.github/ISSUE_TEMPLATE/local-agent-task.md`) — pre-fills the
