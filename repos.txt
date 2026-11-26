@@ -1,7 +1,5 @@
-# Fleet: repos the universal baseline applies to, one slug per line.
-# A repo with its own .github/repo/ folder is self-managed and skipped
-# automatically (hybrid rule) — listed here anyway so the fleet is
-# enumerated in one place.
+# Fleet: every repo the baseline in repo-defaults/ applies to, one slug per line.
+# A repo's own differences live in its .github/repo-settings.json.
 rae004/.github
 rae004/rae-local-agent
 rae004/rae-local-chat

@@ -5,38 +5,91 @@ and fleet-wide repository settings for all `rae004` repositories.
 
 ## Fleet settings as code
 
-GitHub has no native user-level defaults for repo *settings*, so this repo
-carries them as code (same pattern as `rae-local-chat`'s and
-`rae-local-agent`'s in-repo `.github/repo/` folders, extended across repos):
+GitHub has no account-level defaults for repo settings, so this repo holds
+them. It is the single source of truth for every repo in `repos.txt`.
 
-- `repo-defaults/` — the universal baseline, as verbatim REST API bodies:
-  merge policy (squash/rebase only, auto-merge, branch cleanup), Dependabot
-  security updates, Actions token defaults, and a baseline `main` ruleset
-  (PR required, linear history, no deletions — **no** required status
-  checks, since check names are per-repo). `visibility` is deliberately
-  absent so an apply can never flip a private repo public.
-- `overrides/<repo>/<file>` — whole-file replacement of a default for one
-  repo (e.g. a ruleset with that repo's required checks).
-- `repos.txt` — the explicit fleet list. **Hybrid rule:** a repo with its
-  own `.github/repo/` folder (currently `rae-local-agent`, `rae-local-chat`)
-  is self-managed and skipped automatically.
+| Where | What |
+|---|---|
+| `repo-defaults/` | The baseline for all repos, as GitHub REST API bodies |
+| `repos.txt` | The repos it applies to |
+| `scripts/fleet_settings.py` | Compares (`diff`) or pushes (`apply`) the baseline, repo by repo |
+| `.github/repo-settings.json` in each repo | Only what differs for that repo |
 
 ```
-python3 scripts/fleet_settings.py diff     # exit 1 on drift anywhere
-python3 scripts/fleet_settings.py apply    # push the baseline (needs admin)
+python3 scripts/fleet_settings.py diff     # show drift; exit 1 if any
+python3 scripts/fleet_settings.py apply    # push to GitHub (needs repo admin)
+python3 -m unittest discover tests
 ```
 
-`scripts/repo_settings.py` is the shared engine (verbatim copy of the
-in-repo original); `fleet_settings.py` drives it across `repos.txt`.
+`apply` is only ever run by hand. Nothing changes on GitHub when a PR merges.
+
+### What the baseline enforces
+
+- Changes reach the default branch only through a PR (0 approvals).
+- Squash or rebase only; linear history; no force-push or deletion.
+- Required checks must pass, and the branch must be up to date first.
+- No bypass: the rules bind admins too.
+- Actions must be pinned to a commit SHA.
+- Secret scanning, push protection and Dependabot security updates on.
+- Wiki off; branches deleted on merge; auto-merge and "Update branch" on.
+
+`visibility` is deliberately not managed, so an apply can never make a
+private repo public.
+
+### Per-repo differences
+
+A repo lists its own differences in `.github/repo-settings.json`. All keys
+are optional; any other key is an error.
+
+```json
+{
+  "required_status_checks": ["lint", "test"],
+  "pull_request": { "require_extra_approval_for_unattributed_changes": false },
+  "labels": [{ "name": "local-agent", "color": "0075ca", "description": "Hand to local agent" }]
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `required_status_checks` | CI job names that must pass. Use the job's `name:`, or its id if it has none |
+| `pull_request` | Changes to individual parameters of the baseline's pull-request rule |
+| `labels` | Issue labels to keep in place; other labels are left alone |
+
+A repo with no file gets the baseline with no required checks.
+
+### Common tasks
+
+- **Change a setting for every repo:** edit `repo-defaults/`, merge, run `apply`.
+- **Add a required CI job:** add the job and its name in
+  `.github/repo-settings.json` in the same PR, merge, run `apply`.
+- **Rename or remove a required CI job:** two steps, because a PR cannot
+  pass a required check whose job no longer exists under that name.
+  1. Remove the old name from `.github/repo-settings.json`, merge, run `apply`.
+  2. Rename the job and add the new name to the file, merge, run `apply`.
+- **Add a repo:** add it to `repos.txt`; give it a `.github/repo-settings.json`
+  listing its CI jobs; make sure its workflows pin actions to a SHA and CI on
+  the default branch is green; run `diff`, then `apply`.
+
+### Rulesets
+
+Each repo has exactly one ruleset, `Protect Main`. A lone ruleset under
+another name is renamed in place. Any additional ruleset is reported as
+drift with the command to delete it; the script never deletes one.
 
 ### Weekly drift audit
 
-`.github/workflows/drift-audit.yml` runs the fleet diff every Monday and
-opens (or comments on) a `fleet-drift` issue here when anything drifted.
-It needs a `FLEET_ADMIN_TOKEN` secret — a fine-grained PAT with
-**Administration: read** on all fleet repos — to read rulesets and Actions
-permissions; without it most targets report `skipped`. Applying is always
-done locally.
+`.github/workflows/drift-audit.yml` runs `diff` every Monday and opens (or
+comments on) a `fleet-drift` issue here when anything drifted. It needs a
+`FLEET_ADMIN_TOKEN` secret: a fine-grained PAT with **Administration: read**
+on every repo in `repos.txt`. Without it, most targets report `skipped`.
+
+### Migrating from in-repo settings
+
+Repos that still carry the older `.github/repo/` folder and no
+`.github/repo-settings.json` are skipped, so the baseline cannot strip their
+required checks. To migrate one: add `.github/repo-settings.json`, delete
+`.github/repo/`, `scripts/repo_settings.py` and
+`.github/workflows/repo-settings.yml` in the same PR, then run `apply` here.
 
 ## Issue templates
 
