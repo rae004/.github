@@ -38,11 +38,13 @@ import copy
 import json
 import sys
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from repo_settings import ApiError, drift, gh, load, report  # noqa: E402
+import repo_settings  # noqa: E402
+from repo_settings import MAX_ATTEMPTS, ApiError, backoff, drift, gh, load, report  # noqa: E402
 
 BASE = Path(__file__).resolve().parents[1]
 DEFAULTS = BASE / "repo-defaults"
@@ -130,11 +132,41 @@ def fetch_settings(slug: str) -> dict[str, Any] | None:
         raise SettingsError(f"not valid JSON: {e}") from None
 
 
-def _write(apply: bool, method: str, path: str, desired: object, name: str, verb: str) -> None:
+def _create(path: str, desired: object, exists: Callable[[], bool]) -> None:
+    """POST `desired`, retrying transient failures without creating it twice.
+
+    If the connection drops after GitHub accepted the request, a blind retry
+    would make a duplicate. So after each transient failure, wait, then ask
+    `exists()` whether the create landed before trying again.
+    """
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            gh("POST", path, desired, retry=False)
+            return
+        except ApiError as e:
+            if not e.transient or attempt == MAX_ATTEMPTS:
+                raise
+            repo_settings._sleep(backoff(attempt))
+            if exists():
+                return
+
+
+def _write(
+    apply: bool,
+    method: str,
+    path: str,
+    desired: object,
+    name: str,
+    verb: str,
+    exists: Callable[[], bool] | None = None,
+) -> None:
     if not apply:
         return
     try:
-        gh(method, path, desired)
+        if method == "POST" and exists is not None:
+            _create(path, desired, exists)
+        else:
+            gh(method, path, desired)
         print(f"  {verb:<8} {name}")
     except ApiError as e:
         print(f"  FAILED   {name} ({e})")
@@ -172,7 +204,17 @@ def check_ruleset(slug: str, settings: dict[str, Any], apply: bool) -> int:
     if ruleset_id is None:
         print("  DRIFT    ruleset (not on GitHub)")
         drifted += 1
-        _write(apply, "POST", f"repos/{slug}/rulesets", desired, "ruleset", "created")
+        _write(
+            apply,
+            "POST",
+            f"repos/{slug}/rulesets",
+            desired,
+            "ruleset",
+            "created",
+            exists=lambda: any(
+                r["name"] == desired["name"] for r in gh("GET", f"repos/{slug}/rulesets") or []
+            ),
+        )
     else:
         live = gh("GET", f"repos/{slug}/rulesets/{ruleset_id}")
         changes, unverified = drift(desired, live)
@@ -199,7 +241,18 @@ def check_labels(slug: str, settings: dict[str, Any], apply: bool) -> int:
         if have is None:
             print(f"  DRIFT    {name} (not on GitHub)")
             drifted += 1
-            _write(apply, "POST", f"repos/{slug}/labels", want, name, "created")
+            _write(
+                apply,
+                "POST",
+                f"repos/{slug}/labels",
+                want,
+                name,
+                "created",
+                exists=lambda want=want: any(
+                    label["name"] == want["name"]
+                    for label in gh("GET", f"repos/{slug}/labels?per_page=100") or []
+                ),
+            )
             continue
         changes, _ = drift(want, have)
         report(name, changes, [])
