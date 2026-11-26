@@ -6,10 +6,14 @@
 Reads NUL-separated commit messages on stdin and prints the next version, or
 nothing when no commit calls for a release. The biggest change wins:
 
-    type!: ...  or a "BREAKING CHANGE:" footer   major
+    type!: ...  or a "BREAKING CHANGE:" footer   major (minor while on 0.x)
     feat: ...                                    minor
     fix: ... / perf: ...                         patch
     anything else (chore, docs, ci, ...)         no release
+
+Per the SemVer spec, 0.x is initial development: a breaking change there
+bumps the minor, and 1.0.0 is only ever cut by hand
+(`gh release create v1.0.0 --generate-notes`).
 
 Stdlib only, no dependencies.
 """
@@ -20,6 +24,8 @@ import sys
 HEADER = re.compile(r"^(?P<type>[a-zA-Z]+)(\([^)]*\))?(?P<bang>!)?:\s")
 BREAKING = re.compile(r"^BREAKING[ -]CHANGE:\s", re.MULTILINE)
 LEVELS = {"feat": 2, "fix": 1, "perf": 1}  # 3 = major, 0 = no release
+# Every type a PR title may use; only the ones in LEVELS cut a release.
+TYPES = ("feat", "fix", "perf", "refactor", "docs", "chore", "test", "ci", "build", "style", "revert")
 
 
 def level(message: str) -> int:
@@ -36,9 +42,9 @@ def bump(current: str, messages: list[str]) -> str | None:
     """`current` raised by the biggest change in `messages`; None for no release."""
     major, minor, patch = (int(part) for part in current.split("."))
     biggest = max((level(m) for m in messages), default=0)
-    if biggest == 3:
+    if biggest == 3 and major > 0:
         return f"{major + 1}.0.0"
-    if biggest == 2:
+    if biggest >= 2:
         return f"{major}.{minor + 1}.0"
     if biggest == 1:
         return f"{major}.{minor}.{patch + 1}"

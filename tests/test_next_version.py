@@ -41,7 +41,14 @@ class Bump(unittest.TestCase):
 
     def test_biggest_change_wins(self):
         self.assertEqual(bump("1.4.2", ["chore: a", "fix: b", "feat: c", "fix: d"]), "1.5.0")
-        self.assertEqual(bump("0.9.9", ["fix: a", "feat!: b"]), "1.0.0")
+        self.assertEqual(bump("1.9.9", ["fix: a", "feat!: b"]), "2.0.0")
+
+    def test_breaking_on_0x_bumps_minor_never_reaches_1_0_0(self):
+        self.assertEqual(bump("0.9.9", ["fix: a", "feat!: b"]), "0.10.0")
+        self.assertEqual(bump("0.7.0", ["fix!: a"]), "0.8.0")
+        self.assertEqual(bump("0.7.0", ["chore: a\n\nBREAKING CHANGE: b"]), "0.8.0")
+        self.assertEqual(bump("0.7.3", ["feat: a"]), "0.8.0")
+        self.assertEqual(bump("0.7.3", ["fix: a"]), "0.7.4")
 
     def test_no_release(self):
         self.assertIsNone(bump("1.4.0", ["chore(deps): bump x", "docs: y"]))
