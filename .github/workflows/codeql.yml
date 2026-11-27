@@ -20,6 +20,7 @@ name: CodeQL
 #     of the languages the caller lists.
 #   - The query set is `security-and-quality`, CodeQL's widest built-in set.
 #   - The CodeQL version, through the pinned actions below.
+#   - Database migration folders are not scanned (see `config` below).
 #
 # Results appear under the repo's Security tab, one category per language.
 
@@ -32,12 +33,6 @@ on:
           '["python"]'. Do not list "actions"; it is always added.
         type: string
         required: true
-      config-file:
-        description: >-
-          Path in the calling repo to a CodeQL config file, for the rare repo
-          that must exclude paths. Leave unset otherwise.
-        type: string
-        default: ""
 
 permissions:
   contents: read
@@ -69,7 +64,14 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           queries: security-and-quality
-          config-file: ${{ inputs.config-file }}
+          # Alembic migration files declare `revision`, `down_revision`,
+          # `branch_labels` and `depends_on` for the migration tool to read;
+          # CodeQL reports each as an unused global, four per migration.
+          # The files are generated schema changes with nothing to scan.
+          config: |
+            paths-ignore:
+              - "**/migrations/versions"
+              - "**/alembic/versions"
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
