@@ -37,8 +37,8 @@ import base64
 import copy
 import json
 import sys
-from pathlib import Path
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -57,7 +57,12 @@ ALLOWED_KEYS = {"required_status_checks", "pull_request", "labels"}
 TARGETS = [
     ("repository.json", "", "PATCH", ""),
     ("actions-permissions.json", "/actions/permissions", "PUT", "/actions/permissions"),
-    ("actions-workflow.json", "/actions/permissions/workflow", "PUT", "/actions/permissions/workflow"),
+    (
+        "actions-workflow.json",
+        "/actions/permissions/workflow",
+        "PUT",
+        "/actions/permissions/workflow",
+    ),
 ]
 
 
@@ -78,7 +83,9 @@ def validate(settings: Any) -> dict[str, Any]:
     if not isinstance(settings.get("pull_request", {}), dict):
         raise SettingsError("pull_request must be an object")
     labels = settings.get("labels", [])
-    if not isinstance(labels, list) or not all(isinstance(x, dict) and x.get("name") for x in labels):
+    if not isinstance(labels, list) or not all(
+        isinstance(x, dict) and x.get("name") for x in labels
+    ):
         raise SettingsError("labels must be a list of objects with a name")
     return settings
 
@@ -221,7 +228,9 @@ def check_ruleset(slug: str, settings: dict[str, Any], apply: bool) -> int:
         report("ruleset", changes, unverified)
         if changes:
             drifted += 1
-            _write(apply, "PUT", f"repos/{slug}/rulesets/{ruleset_id}", desired, "ruleset", "applied")
+            _write(
+                apply, "PUT", f"repos/{slug}/rulesets/{ruleset_id}", desired, "ruleset", "applied"
+            )
     for name, extra_id in sorted(live_list.items()):
         print(f"  DRIFT    unexpected ruleset {name!r}; remove it by hand:")
         print(f"           gh api -X DELETE repos/{slug}/rulesets/{extra_id}")
@@ -285,16 +294,21 @@ def check_repo(slug: str, apply: bool) -> int:
     )
 
 
+def fleet_slugs(path: Path = REPOS_FILE) -> list[str]:
+    """The `owner/name` lines of `repos.txt`, without blanks and comments."""
+    return [
+        line.strip()
+        for line in path.read_text().splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 2 or argv[1] not in {"diff", "apply"}:
         print(__doc__)
         return 2
     apply = argv[1] == "apply"
-    slugs = [
-        line.strip()
-        for line in REPOS_FILE.read_text().splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
-    ]
+    slugs = fleet_slugs()
     print(f"{'Applying' if apply else 'Comparing'} repo-defaults against {len(slugs)} repo(s)")
     drifted = 0
     try:

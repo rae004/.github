@@ -113,6 +113,35 @@ repo's built-in `GITHUB_TOKEN`.
 When adding a repo to `repos.txt`, also add it to `FLEET_ADMIN_TOKEN`'s
 repository access.
 
+## Checks on this repo
+
+Everything here is shared, so a mistake merged to `main` reaches every repo
+on its next push. Each PR to this repo must pass two required checks:
+
+| Check | What it runs |
+|---|---|
+| `Lint and test` (`.github/workflows/ci.yml`) | The unit tests, `ruff check`, `ruff format --check` and `actionlint` on the workflows |
+| `title / Conventional title` | The same title check every other repo uses |
+
+To run the same checks locally (versions are pinned at the top of `ci.yml`):
+
+```
+python3 -m unittest discover tests
+uvx ruff@0.17.6 check . && uvx ruff@0.17.6 format --check .
+actionlint
+```
+
+`tests/test_baseline.py` loads the real files in `repo-defaults/` and
+`repos.txt`, so a typo in the baseline fails on the PR instead of part-way
+through an `apply`. It also holds the values chosen on purpose: `visibility`
+is never managed, nobody bypasses the ruleset, and Actions must be pinned to
+a commit. Changing one of those means changing that test too.
+
+This repo also releases through its own release workflow
+(`.github/workflows/self-release.yml`). Each merge here is therefore a run of
+the shared workflow before another repo uses it, and each release is a tag to
+go back to if a change breaks releases elsewhere.
+
 ## Releases
 
 `.github/workflows/release.yml` is the one release workflow for every repo.

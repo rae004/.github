@@ -1,0 +1,55 @@
+name: CI
+
+# Checks for this repo's own scripts, tests and workflows. Everything here is
+# shared by every repo in repos.txt, so a mistake merged to main reaches all of
+# them on their next push. `Lint and test` is a required check
+# (.github/repo-settings.json).
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned so a new release of either tool cannot fail a PR by itself. Bump by
+  # hand; ACTIONLINT_SHA256 is the linux_amd64 line of that release's
+  # checksums file.
+  RUFF_VERSION: "0.17.6"
+  ACTIONLINT_VERSION: "1.7.12"
+  ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+
+jobs:
+  check:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The runner's own python3, the same one release.yml and pr-title.yml
+      # run the scripts with in every repo.
+      - name: Tests
+        run: python3 -m unittest discover tests
+
+      - name: Ruff lint
+        run: pipx run "ruff==$RUFF_VERSION" check .
+
+      - name: Ruff format
+        run: pipx run "ruff==$RUFF_VERSION" format --check .
+
+      - name: Actionlint
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          file="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          gh release download "v$ACTIONLINT_VERSION" --repo rhysd/actionlint --pattern "$file" --dir "$RUNNER_TEMP"
+          echo "$ACTIONLINT_SHA256  $RUNNER_TEMP/$file" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/$file" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
