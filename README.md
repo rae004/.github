@@ -267,6 +267,10 @@ sets what is the same everywhere:
 - Database migration folders (`**/migrations/versions`,
   `**/alembic/versions`) are not scanned. The migration tool reads the
   variables those files declare, which CodeQL would report as unused.
+- The two import-cycle rules (`py/cyclic-import`,
+  `py/unsafe-cyclic-import`) are off. Database models with two-way
+  relationships import each other by design, and CodeQL reports it however
+  the import is written.
 
 A repo passes only the languages its code is written in:
 
