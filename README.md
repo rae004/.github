@@ -289,6 +289,20 @@ Do not list `actions`; it is always added. A repo that must exclude paths
 from the scan can pass `config-file` with the path to a CodeQL config file.
 Results are under each repo's Security tab.
 
+### Handling alerts
+
+The aim is zero open alerts in every repo, so that a new one always means
+something. Each alert gets one of three outcomes:
+
+| Outcome | When | How |
+|---|---|---|
+| Fix it | The fix is cheap and leaves the code better anyway | A normal PR |
+| Dismiss it, with a reason | It is a false alarm and a fix would make the code worse just to satisfy the tool | Dismiss the alert on GitHub as "False positive", "Used in tests" or "Won't fix", with a one-line note saying why |
+| Exclude it centrally | A whole category is noise in every repo | Change the shared workflow here, once; never repo by repo |
+
+Do not leave alerts open and ignored: a pile of them hides the one that
+matters.
+
 ## Issue templates
 
 - **Local agent task** (`.github/ISSUE_TEMPLATE/local-agent-task.md`) — pre-fills the
