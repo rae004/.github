@@ -20,7 +20,8 @@ name: CodeQL
 #     of the languages the caller lists.
 #   - The query set is `security-and-quality`, CodeQL's widest built-in set.
 #   - The CodeQL version, through the pinned actions below.
-#   - Database migration folders are not scanned (see `config` below).
+#   - Database migration folders are not scanned, and the two import-cycle
+#     rules are off (see `config` below).
 #
 # Results appear under the repo's Security tab, one category per language.
 
@@ -68,10 +69,20 @@ jobs:
           # `branch_labels` and `depends_on` for the migration tool to read;
           # CodeQL reports each as an unused global, four per migration.
           # The files are generated schema changes with nothing to scan.
+          #
+          # ORM models with two-way relationships import each other, which is
+          # how such relationships are written. CodeQL reports it even when
+          # the import is for type checking only, so no rewrite clears it. A
+          # cycle that really breaks fails as soon as the app or tests start.
           config: |
             paths-ignore:
               - "**/migrations/versions"
               - "**/alembic/versions"
+            query-filters:
+              - exclude:
+                  id:
+                    - py/cyclic-import
+                    - py/unsafe-cyclic-import
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
