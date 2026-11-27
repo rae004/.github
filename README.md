@@ -116,7 +116,7 @@ repository access.
 ## Checks on this repo
 
 Everything here is shared, so a mistake merged to `main` reaches every repo
-on its next push. Each PR to this repo must pass two required checks:
+as it moves to the next release. Each PR to this repo must pass two required checks:
 
 | Check | What it runs |
 |---|---|
@@ -217,6 +217,10 @@ uses: rae004/.github/.github/workflows/release.yml@5bc9b7d39611874852d144fc0bb66
 - To move a repo to a newer release, change the commit and the comment in
   its callers. Each repo's Dependabot config covers `github-actions`, which
   is meant to raise that PR.
+- The pin covers the rules as well as the workflow file. The release and
+  title workflows fetch `scripts/` from the same commit of this repo that
+  they were called at, so a repo on v0.2.1 runs v0.2.1's rules whatever is
+  on `main`.
 - This repo calls its own shared workflows by local path
   (`./.github/workflows/...`), so it always runs what was just merged.
 
