@@ -17,11 +17,6 @@ name: PR title
 
 on:
   workflow_call:
-    inputs:
-      scripts-ref:
-        description: Ref of rae004/.github to take the rules from. Leave unset outside testing.
-        type: string
-        default: main
 
 permissions:
   contents: read
@@ -31,11 +26,15 @@ jobs:
     name: Conventional title
     runs-on: ubuntu-latest
     steps:
+      # The rules come from the same commit of rae004/.github as this workflow
+      # file, so a pinned caller gets the rules of the release it pinned.
+      # `job.workflow_*` describe the workflow file that defines this job;
+      # `github.workflow_*` would describe the caller's.
       - name: Fetch the rules
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: rae004/.github
-          ref: ${{ inputs.scripts-ref }}
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
           sparse-checkout: scripts
           persist-credentials: false
 

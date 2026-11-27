@@ -33,10 +33,6 @@ on:
         description: Work out the version but create no tag or release.
         type: boolean
         default: false
-      scripts-ref:
-        description: Ref of rae004/.github to take the version rules from. Leave unset outside testing.
-        type: string
-        default: main
     outputs:
       tag:
         description: The tag that was created (or would be, on a dry run); empty when there is no release.
@@ -63,11 +59,15 @@ jobs:
         with:
           fetch-depth: 0 # full history and tags, to find the last release
 
+      # The rules come from the same commit of rae004/.github as this workflow
+      # file, so a repo that pins this workflow to a release gets that
+      # release's rules too. `job.workflow_*` describe the workflow file that
+      # defines this job; `github.workflow_*` would describe the caller's.
       - name: Fetch the version rules
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: rae004/.github
-          ref: ${{ inputs.scripts-ref }}
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
           path: .release-rules
           sparse-checkout: |
             scripts

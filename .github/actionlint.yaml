@@ -1,0 +1,7 @@
+# actionlint 1.7.12 predates the `job.workflow_*` properties GitHub added in
+# 2026, which the shared workflows use to find their own commit. Remove this
+# once the pinned actionlint (ci.yml) knows them.
+paths:
+  .github/workflows/*.yml:
+    ignore:
+      - 'property "workflow_(repository|sha)" is not defined in object type'
