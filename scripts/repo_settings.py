@@ -76,6 +76,11 @@ def backoff(attempt: int) -> float:
     return step / 2 + random.uniform(0, step / 2)
 
 
+def pause(attempt: int) -> None:
+    """Wait out the backoff for this attempt."""
+    _sleep(backoff(attempt))
+
+
 def _gh_once(method: str, path: str, body: Any = None) -> Any:
     cmd = ["gh", "api", "-X", method, path]
     stdin = None

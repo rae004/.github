@@ -10,7 +10,6 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import fleet_settings  # noqa: E402
-import repo_settings  # noqa: E402
 from repo_settings import MAX_ATTEMPTS, MAX_DELAY, ApiError, backoff, gh  # noqa: E402
 
 OK = SimpleNamespace(returncode=0, stdout='{"ok": true}', stderr="")
@@ -26,7 +25,7 @@ def http(status: int, message: str = "nope") -> SimpleNamespace:
 class Retry(unittest.TestCase):
     def setUp(self):
         self.sleeps: list[float] = []
-        patcher = mock.patch.object(repo_settings, "_sleep", self.sleeps.append)
+        patcher = mock.patch("repo_settings._sleep", self.sleeps.append)
         patcher.start()
         self.addCleanup(patcher.stop)
         silence = mock.patch("sys.stderr", new=mock.MagicMock())
@@ -34,7 +33,7 @@ class Retry(unittest.TestCase):
         self.addCleanup(silence.stop)
 
     def run_with(self, *results):
-        return mock.patch.object(repo_settings.subprocess, "run", side_effect=list(results))
+        return mock.patch("repo_settings.subprocess.run", side_effect=list(results))
 
     def test_dropped_connection_is_retried_then_succeeds(self):
         with self.run_with(RESET, RESET, OK) as run:
