@@ -264,6 +264,9 @@ sets what is the same everywhere:
 - Workflow files are always scanned, on top of the repo's own languages.
 - The query set is `security-and-quality`, CodeQL's widest built-in set.
 - The CodeQL version, through the actions pinned in the workflow.
+- Database migration folders (`**/migrations/versions`,
+  `**/alembic/versions`) are not scanned. The migration tool reads the
+  variables those files declare, which CodeQL would report as unused.
 
 A repo passes only the languages its code is written in:
 
@@ -289,9 +292,10 @@ jobs:
       languages: '["python", "javascript-typescript"]'
 ```
 
-Do not list `actions`; it is always added. A repo that must exclude paths
-from the scan can pass `config-file` with the path to a CodeQL config file.
-Results are under each repo's Security tab.
+Do not list `actions`; it is always added. There is no per-repo CodeQL
+config: a path or rule that is noise in one repo is noise in the others, so
+it is excluded here (see "Handling alerts"). Results are under each repo's
+Security tab.
 
 ### Handling alerts
 
