@@ -137,6 +137,10 @@ through an `apply`. It also holds the values chosen on purpose: `visibility`
 is never managed, nobody bypasses the ruleset, and Actions must be pinned to
 a commit. Changing one of those means changing that test too.
 
+`.github/workflows/self-codeql.yml` scans this repo's scripts and workflows
+with the shared CodeQL workflow, and `.github/dependabot.yml` keeps the
+actions pinned in the shared workflows current.
+
 This repo also releases through its own release workflow
 (`.github/workflows/self-release.yml`). Each merge here is therefore a run of
 the shared workflow before another repo uses it, and each release is a tag to
@@ -188,7 +192,7 @@ jobs:
   release:
     permissions:
       contents: write
-    uses: rae004/.github/.github/workflows/release.yml@main
+    uses: rae004/.github/.github/workflows/release.yml@<commit> # vX.Y.Z
 
   deploy:
     needs: release
@@ -196,9 +200,25 @@ jobs:
     # the repo's own deploy, given needs.release.outputs.tag
 ```
 
-Callers reference `@main`, so a change merged here reaches every repo on its
-next push with nothing to bump. GitHub's SHA-pinning rule does not apply to
-calls to reusable workflows, only to the actions inside them.
+### How repos reference the shared workflows
+
+Every call to a shared workflow is pinned to the commit of a release of this
+repo, with the version in a comment:
+
+```yaml
+uses: rae004/.github/.github/workflows/release.yml@5bc9b7d39611874852d144fc0bb668eb989bb4e8 # v0.1.0
+```
+
+- A change here reaches a repo only when that repo's pin is moved to a
+  release that contains it. A bad merge here cannot break every repo at once.
+- A change to a shared workflow, or to an action pinned inside one, must
+  therefore be titled `feat` or `fix`. A `chore`, `ci` or `docs` title cuts
+  no release, so no repo would ever pick the change up.
+- To move a repo to a newer release, change the commit and the comment in
+  its callers. Each repo's Dependabot config covers `github-actions`, which
+  is meant to raise that PR.
+- This repo calls its own shared workflows by local path
+  (`./.github/workflows/...`), so it always runs what was just merged.
 
 ### PR title check
 
@@ -218,7 +238,7 @@ on:
 
 jobs:
   title:
-    uses: rae004/.github/.github/workflows/pr-title.yml@main
+    uses: rae004/.github/.github/workflows/pr-title.yml@<commit> # vX.Y.Z
 ```
 
 ```json
@@ -231,6 +251,43 @@ Dependabot PRs follow the same rule through each repo's own
 `.github/dependabot.yml` (GitHub has no shared one): runtime dependency bumps
 are titled `fix(deps)` and cut a patch release, dev-only bumps are
 `chore(deps-dev)`, and GitHub Actions bumps are `chore(deps)`.
+
+## Code scanning
+
+`.github/workflows/codeql.yml` is the one CodeQL workflow for every repo. It
+sets what is the same everywhere:
+
+- Workflow files are always scanned, on top of the repo's own languages.
+- The query set is `security-and-quality`, CodeQL's widest built-in set.
+- The CodeQL version, through the actions pinned in the workflow.
+
+A repo passes only the languages its code is written in:
+
+```yaml
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 9 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    uses: rae004/.github/.github/workflows/codeql.yml@<commit> # vX.Y.Z
+    with:
+      languages: '["python", "javascript-typescript"]'
+```
+
+Do not list `actions`; it is always added. A repo that must exclude paths
+from the scan can pass `config-file` with the path to a CodeQL config file.
+Results are under each repo's Security tab.
 
 ## Issue templates
 
