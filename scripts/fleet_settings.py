@@ -43,8 +43,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import repo_settings  # noqa: E402
-from repo_settings import MAX_ATTEMPTS, ApiError, backoff, drift, gh, load, report  # noqa: E402
+from repo_settings import MAX_ATTEMPTS, ApiError, drift, gh, load, pause, report  # noqa: E402
 
 BASE = Path(__file__).resolve().parents[1]
 DEFAULTS = BASE / "repo-defaults"
@@ -153,7 +152,7 @@ def _create(path: str, desired: object, exists: Callable[[], bool]) -> None:
         except ApiError as e:
             if not e.transient or attempt == MAX_ATTEMPTS:
                 raise
-            repo_settings._sleep(backoff(attempt))
+            pause(attempt)
             if exists():
                 return
 
