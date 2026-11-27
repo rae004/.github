@@ -7,7 +7,7 @@ name: Release
 #     release:
 #       permissions:
 #         contents: write
-#       uses: rae004/.github/.github/workflows/release.yml@main
+#       uses: rae004/.github/.github/workflows/release.yml@<commit> # vX.Y.Z
 #
 # Every push to the default branch is one squash-merged PR. This workflow
 # tags that commit directly and publishes a GitHub Release for it; there is

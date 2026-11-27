@@ -9,7 +9,7 @@ name: PR title
 #       types: [opened, edited, synchronize, reopened]
 #   jobs:
 #     title:
-#       uses: rae004/.github/.github/workflows/pr-title.yml@main
+#       uses: rae004/.github/.github/workflows/pr-title.yml@<commit> # vX.Y.Z
 #
 # The PR title becomes the squash commit message, which release.yml reads to
 # decide the version. Both use scripts/next_version.py, so a title that passes
