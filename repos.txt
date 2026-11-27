@@ -8,3 +8,4 @@ rae004/rae-time-tracker-and-invoice
 rae004/ai-security-digest
 rae004/rae-dev-model-training-lab
 rae004/rae-dev-portfolio-2026
+rae004/rae-globe-ui
