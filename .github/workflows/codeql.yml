@@ -1,0 +1,77 @@
+name: CodeQL
+
+# Reusable CodeQL scan for every rae004 repo. A repo calls it on push to its
+# default branch, on pull requests and on a weekly schedule, and passes only
+# the languages its code is written in:
+#
+#   jobs:
+#     analyze:
+#       permissions:
+#         security-events: write
+#         contents: read
+#         actions: read
+#       uses: rae004/.github/.github/workflows/codeql.yml@<commit> # vX.Y.Z
+#       with:
+#         languages: '["python", "javascript-typescript"]'
+#
+# What is the same everywhere, and so is set here and not by the caller:
+#
+#   - Workflow files are always scanned (CodeQL's `actions` language), on top
+#     of the languages the caller lists.
+#   - The query set is `security-and-quality`, CodeQL's widest built-in set.
+#   - The CodeQL version, through the pinned actions below.
+#
+# Results appear under the repo's Security tab, one category per language.
+
+on:
+  workflow_call:
+    inputs:
+      languages:
+        description: >-
+          JSON list of the CodeQL languages in the repo's own code, e.g.
+          '["python"]'. Do not list "actions"; it is always added.
+        type: string
+        required: true
+      config-file:
+        description: >-
+          Path in the calling repo to a CodeQL config file, for the rare repo
+          that must exclude paths. Leave unset otherwise.
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      security-events: write # upload results
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(inputs.languages) }}
+        # `language` is already a matrix key, so this adds one more job
+        # rather than changing the ones above.
+        include:
+          - language: actions
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+          config-file: ${{ inputs.config-file }}
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+        with:
+          category: "/language:${{ matrix.language }}"

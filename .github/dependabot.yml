@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # The actions pinned in this repo's workflows are the ones every repo runs
+  # through the shared workflows, so this is where they are kept current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    # `fix`, not `chore`: a bump here changes what the shared workflows run,
+    # and repos only pick up a change once it is part of a release.
+    commit-message:
+      prefix: "fix"
+      include: "scope"
+    groups:
+      # init and analyze must run the same version or CodeQL fails.
+      codeql:
+        patterns:
+          - "github/codeql-action*"

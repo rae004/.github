@@ -1,0 +1,25 @@
+name: CodeQL (this repo)
+
+# Scans this repo's own scripts and workflows with the shared CodeQL workflow,
+# called by local path so a change to it is tried here first.
+# Docs: README.md#code-scanning
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 9 * * 1" # Mondays 09:00 UTC, so alerts stay fresh in quiet weeks
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    uses: ./.github/workflows/codeql.yml
+    with:
+      languages: '["python"]'
