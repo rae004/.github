@@ -101,13 +101,14 @@ all of them.
 
 ### Tokens
 
-Both are fine-grained personal access tokens. They expire and must be
-renewed by hand.
+One secret is needed: `FLEET_ADMIN_TOKEN`, set on this repo. It is a
+fine-grained personal access token with **Administration: read** on every
+repo in `repos.txt`, used by the weekly drift audit. It expires and must be
+renewed by hand; once expired, the audit reports errors or `skipped` instead
+of real results.
 
-| Secret | Set on | Permissions | Used by | When it expires |
-|---|---|---|---|---|
-| `FLEET_ADMIN_TOKEN` | This repo | Administration: read, on every repo in `repos.txt` | Weekly drift audit | The audit reports errors or `skipped` instead of real results |
-| `RELEASE_PLEASE_TOKEN` | `ai-security-digest`, `rae-budget`, `rae-dev-portfolio-2026`, `rae-time-tracker-and-invoice` | Contents and Pull requests: read and write, on those repos | release-please, so CI runs on its release PRs | Release PRs stop being created or updated on those repos |
+Releases and title checks need no token of their own; they run on each
+repo's built-in `GITHUB_TOKEN`.
 
 When adding a repo to `repos.txt`, also add it to `FLEET_ADMIN_TOKEN`'s
 repository access.
