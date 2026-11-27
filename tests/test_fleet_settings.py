@@ -22,20 +22,31 @@ class BuildRuleset(unittest.TestCase):
         self.assertEqual(build_ruleset(BASELINE, {}), BASELINE)
 
     def test_checks_add_a_strict_rule(self):
-        params = rule(build_ruleset(BASELINE, {"required_status_checks": ["a", "b"]}), "required_status_checks")["parameters"]
+        params = rule(
+            build_ruleset(BASELINE, {"required_status_checks": ["a", "b"]}),
+            "required_status_checks",
+        )["parameters"]
         self.assertTrue(params["strict_required_status_checks_policy"])
         self.assertEqual(params["required_status_checks"], [{"context": "a"}, {"context": "b"}])
 
     def test_pull_request_patch_changes_only_that_parameter(self):
         key = "require_extra_approval_for_unattributed_changes"
-        built = rule(build_ruleset(BASELINE, {"pull_request": {key: False}}), "pull_request")["parameters"]
+        built = rule(build_ruleset(BASELINE, {"pull_request": {key: False}}), "pull_request")[
+            "parameters"
+        ]
         base = rule(BASELINE, "pull_request")["parameters"]
         self.assertFalse(built[key])
         self.assertEqual({**built, key: base[key]}, base)
 
     def test_baseline_is_not_mutated(self):
         before = json.dumps(BASELINE)
-        build_ruleset(BASELINE, {"required_status_checks": ["a"], "pull_request": {"required_approving_review_count": 1}})
+        build_ruleset(
+            BASELINE,
+            {
+                "required_status_checks": ["a"],
+                "pull_request": {"required_approving_review_count": 1},
+            },
+        )
         self.assertEqual(json.dumps(BASELINE), before)
 
     def test_unknown_pull_request_parameter_is_rejected(self):
@@ -49,7 +60,13 @@ class Validate(unittest.TestCase):
             validate({"allow_merge_commit": True})
 
     def test_bad_shapes_are_rejected(self):
-        for bad in ([], {"required_status_checks": "lint"}, {"required_status_checks": [""]}, {"pull_request": []}, {"labels": [{"color": "fff"}]}):
+        for bad in (
+            [],
+            {"required_status_checks": "lint"},
+            {"required_status_checks": [""]},
+            {"pull_request": []},
+            {"labels": [{"color": "fff"}]},
+        ):
             with self.assertRaises(SettingsError):
                 validate(bad)
 

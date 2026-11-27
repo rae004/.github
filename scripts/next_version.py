@@ -25,7 +25,19 @@ HEADER = re.compile(r"^(?P<type>[a-zA-Z]+)(\([^)]*\))?(?P<bang>!)?:\s")
 BREAKING = re.compile(r"^BREAKING[ -]CHANGE:\s", re.MULTILINE)
 LEVELS = {"feat": 2, "fix": 1, "perf": 1}  # 3 = major, 0 = no release
 # Every type a PR title may use; only the ones in LEVELS cut a release.
-TYPES = ("feat", "fix", "perf", "refactor", "docs", "chore", "test", "ci", "build", "style", "revert")
+TYPES = (
+    "feat",
+    "fix",
+    "perf",
+    "refactor",
+    "docs",
+    "chore",
+    "test",
+    "ci",
+    "build",
+    "style",
+    "revert",
+)
 
 
 def level(message: str) -> int:

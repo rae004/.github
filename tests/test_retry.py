@@ -18,7 +18,9 @@ RESET = SimpleNamespace(returncode=1, stdout='{"id":1,"na', stderr="read: connec
 
 
 def http(status: int, message: str = "nope") -> SimpleNamespace:
-    return SimpleNamespace(returncode=1, stdout=json.dumps({"status": str(status), "message": message}), stderr="")
+    return SimpleNamespace(
+        returncode=1, stdout=json.dumps({"status": str(status), "message": message}), stderr=""
+    )
 
 
 class Retry(unittest.TestCase):
@@ -54,7 +56,9 @@ class Retry(unittest.TestCase):
         self.assertEqual(self.sleeps, [])
 
     def test_missing_login_is_not_retried(self):
-        no_auth = SimpleNamespace(returncode=1, stdout="", stderr="To get started, run: gh auth login")
+        no_auth = SimpleNamespace(
+            returncode=1, stdout="", stderr="To get started, run: gh auth login"
+        )
         with self.run_with(no_auth, OK) as run, self.assertRaises(ApiError):
             gh("GET", "repos/x/y")
         self.assertEqual(run.call_count, 1)

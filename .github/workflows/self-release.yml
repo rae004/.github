@@ -1,0 +1,19 @@
+name: Release (this repo)
+
+# This repo releases the same way as the repos it serves, through its own
+# shared workflow. That makes every merge here a test of that workflow before
+# another repo runs it, and leaves a tag to go back to. Rules and docs:
+# README.md#releases
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml

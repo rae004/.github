@@ -1,0 +1,16 @@
+name: PR title (this repo)
+
+# The PR title becomes the squash commit message, which the release workflow
+# reads to decide the version. Calls this repo's own shared check.
+# Rules and docs: README.md#pr-title-check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    uses: ./.github/workflows/pr-title.yml
