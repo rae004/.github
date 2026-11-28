@@ -76,9 +76,33 @@ required checks.
   pass a required check whose job no longer exists under that name.
   1. Remove the old name from `.github/repo-settings.json`, merge, run `apply`.
   2. Rename the job and add the new name to the file, merge, run `apply`.
-- **Add a repo:** add it to `repos.txt`; give it a `.github/repo-settings.json`
-  listing its CI jobs; make sure its workflows pin actions to a SHA and CI on
-  the default branch is green; run `diff`, then `apply`.
+- **Add a repo:** see "Onboarding a repo" below.
+
+### Onboarding a repo
+
+Four steps, in this order. `rae004/rae-globe-ui` was onboarded this way and
+is a working example of every file named here.
+
+1. **Add it to the fleet.** Add `owner/name` to `repos.txt` in a PR here,
+   merge, and run `apply`. The repo now has the baseline settings and the
+   `Protect Main` ruleset, with no required checks yet.
+2. **Open one PR in the repo** with everything below, and merge it. Because
+   step 1 came first, this PR already goes through the branch rules, and it
+   is not blocked by required checks that do not exist until it lands.
+
+   | File | Contents |
+   |---|---|
+   | `.github/repo-settings.json` | The names of its CI jobs plus `title / Conventional title` under `required_status_checks`, and every label its `dependabot.yml` names under `labels` |
+   | `.github/workflows/release.yml`, `pr-title.yml`, `codeql.yml` | The three callers shown under "Releases", "PR title check" and "Code scanning", pinned to this repo's latest release |
+   | `.github/workflows/ci.yml` | Its own lint and test jobs, with every action pinned to a commit |
+   | `.github/dependabot.yml` | Its ecosystems plus `github-actions`, with the commit-message prefixes under "Dependabot titles" |
+   | `package.json` / `pyproject.toml` | Version `0.0.0`; the version lives in git tags |
+
+3. **Run `apply` again.** This reads the new `.github/repo-settings.json`,
+   makes its checks required, and creates its labels.
+4. **Check it.** `diff` reports "Fleet matches.", and CI, CodeQL and Release
+   have succeeded on the repo's `main`. The first merged PR titled `feat` or
+   `fix` then cuts `v0.1.0`.
 
 ### Rulesets
 
@@ -102,16 +126,18 @@ all of them.
 ### Tokens
 
 One secret is needed: `FLEET_ADMIN_TOKEN`, set on this repo. It is a
-fine-grained personal access token with **Administration: read** on every
-repo in `repos.txt`, used by the weekly drift audit. It expires and must be
+fine-grained personal access token with **Administration: read** on all
+repositories, used by the weekly drift audit. It expires and must be
 renewed by hand; once expired, the audit reports errors or `skipped` instead
 of real results.
 
 Releases and title checks need no token of their own; they run on each
 repo's built-in `GITHUB_TOKEN`.
 
-When adding a repo to `repos.txt`, also add it to `FLEET_ADMIN_TOKEN`'s
-repository access.
+The token's repository access is set to all repositories, so a newly
+onboarded repo is covered with no change. If that is ever narrowed to
+selected repositories, each new repo must be added to it, or the audit
+reports that repo as `skipped`.
 
 ## Checks on this repo
 
